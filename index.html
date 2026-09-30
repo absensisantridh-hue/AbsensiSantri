@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan Barcode Absensi - PPDH</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      /* Background gambar penuh layar */
+      background: url('bg-ponpes.jpg') no-repeat center center fixed;
+      background-size: cover;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+    }
+
+    /* Kartu Melayang Transparan (Glassmorphism) */
+    .card {
+      background: rgba(255, 255, 255, 0.251);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px 15px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 25px #000000fc;
+      text-align: center;
+    }
+
+    .title-main {
+      font-size: 20px;
+      font-weight: bold;
+      color: #111;
+      margin-bottom: 15px;
+    }
+
+    /* Header Logo & Pesantren */
+    .header-info {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      margin-bottom: 20px;
+    }
+
+    .logo-img {
+      width: 100px;
+      height: auto;
+    }
+
+    .header-text {
+      text-align: left;
+      font-weight: 800;
+      font-size: 17px;
+      line-height: 1.2;
+      color: #1a252f;
+      letter-spacing: 0.5px;
+    }
+
+    /* Opsi Radio (Pulang / Kembali) */
+    .radio-container {
+      background: #ffffff;
+      border-radius: 30px;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      color: #2c3e50;
+      cursor: pointer;
+    }
+
+    .radio-option input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #007bff;
+      cursor: pointer;
+    }
+
+    /* Reader Container */
+    #reader {
+      width: 100%;
+      background: transparent;
+      border: none !important;
+      margin-bottom: 15px;
+    }
+
+    #reader video {
+      border-radius: 12px;
+    }
+
+    /* Kotak Status Informasi */
+    .status-box {
+      background: #ffffff;
+      border-radius: 15px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      min-height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="title-main">Scan Barcode Absensi</div>
+
+    <!-- Header Logo + Nama Pesantren -->
+    <div class="header-info">
+      <!-- Menggunakan logo PPDH -->
+      <img class="logo-img" src="logo.png">
+      <div class="header-text">
+        PONDOK<br> PESANTREN<br>DARUL HIKMAH
+      </div>
+    </div>
+
+    <!-- Pilihan Radio Button -->
+    <div class="radio-container">
+      <label class="radio-option">
+        <input type="radio" name="keterangan" value="Pulang"> Pulang
+      </label>
+      <label class="radio-option">
+        <input type="radio" name="keterangan" value="Kembali" checked> Kembali
+      </label>
+    </div>
+
+    <!-- Area Scanner Barcode / QR -->
+    <div id="reader"></div>
+
+    <!-- Status Teks Peringatan/Berhasil -->
+    <div class="status-box" id="status">
+      Pilih menu di atas, lalu scan barcode...
+    </div>
+  </div>
+
+<script>
+  // Ganti dengan URL Google Apps Script milik Anda
+  const scriptURL = 'https://script.google.com/macros/s/AKfycbxfk8rWcgyNx_yazlY1rX-nB80EuvMertdwfg-dXf8hNszyYjqcUNVRqnYVhZmtTYMt/exec';
+
+  const statusDiv = document.getElementById('status');
+  let isScanning = false;
+
+  // 1. Inisialisasi file audio dari folder local / project
+  const beepAudio = new Audio('beep.mp3'); // Sesuaikan nama file & formatnya (contoh: beep.mp3 / beep.wav)
+
+  // 2. Fungsi untuk memutar suara audio
+  function playBeepSound() {
+    beepAudio.currentTime = 0; // Reset durasi ke awal agar suara bisa diputar berulang dengan cepat
+    beepAudio.play().catch(e => {
+      console.error("Gagal memutar audio:", e);
+    });
+  }
+
+  // 2. Eksekusi Hasil Scan (Aman dari TypeError)
+  function onScanSuccess(decodedText) {
+    if (isScanning) return;
+    isScanning = true;
+
+    playBeepSound();
+
+    // PENGAMBILAN RADIO BUTTON YANG AMAN (Solusi TypeError)
+    let pilihanKeterangan = 'Kembali'; 
+    const selectedRadio = document.querySelector('input[name="keterangan"]:checked');
+    if (selectedRadio) {
+      pilihanKeterangan = selectedRadio.value;
+    }
+
+    statusDiv.innerHTML = "⏳ Mengirim data absensi...";
+
+    const formData = new FormData();
+    formData.append('id', decodedText);
+    formData.append('keterangan', pilihanKeterangan);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', scriptURL, true);
+
+    xhr.onload = function() {
+      statusDiv.innerHTML = `✅ Absen Berhasil! ID: <b>${decodedText}</b> (${pilihanKeterangan})`;
+      setTimeout(() => {
+        isScanning = false;
+        statusDiv.innerHTML = "Pilih menu di atas, lalu scan barcode...";
+      }, 2500);
+    };
+
+    xhr.onerror = function() {
+      statusDiv.innerHTML = "❌ Gagal mengirim data. Coba lagi.";
+      isScanning = false;
+    };
+
+    xhr.send(formData);
+  }
+
+  // 3. Inisialisasi Library HTML5 QR Code
+  const html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+      fps: 15,
+      qrbox: { width: 220, height: 220 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13
+      ]
+    },
+    /* verbose= */ false
+  );
+
+  html5QrcodeScanner.render(onScanSuccess);
+</script>
+
+</body>
+</html>
